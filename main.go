@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	pollInterval = time.Second * 3
+	pollInterval = time.Second * 2
 )
 
 type Data struct {
@@ -21,17 +21,55 @@ type Data struct {
 	Hourly    map[string]any `json:"hourly"`
 }
 
-func main() {
-	ticker := time.NewTicker(pollInterval)
-	for {
-		data, err := getResults(52.52, 13.41)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(data)
-		<-ticker.C
-	}
+type Poller struct {
+	closeChan chan struct{}
+}
 
+func NewPoller() *Poller {
+	return &Poller{
+		closeChan: make(chan struct{}),
+	}
+}
+
+func (p *Poller) start() {
+	fmt.Println("starting poller")
+
+	ticker := time.NewTicker(pollInterval)
+outer:
+	for {
+		select {
+		case <-ticker.C:
+			data, err := getResults(52.52, 13.41)
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = p.handleData(data)
+			if err != nil {
+				log.Fatal(err)
+			}
+		case <-p.closeChan:
+			break outer
+		}
+	}
+	fmt.Println("poller stopped")
+}
+
+func (p *Poller) close() {
+	p.closeChan <- struct{}{}
+}
+
+func (p *Poller) handleData(data *Data) error {
+	fmt.Println(data)
+	return nil
+}
+
+func main() {
+	poller := NewPoller()
+	go poller.start()
+
+	time.Sleep(time.Second * 7)
+	poller.close()
+	select {}
 }
 
 func getResults(lat, long float64) (*Data, error) {
