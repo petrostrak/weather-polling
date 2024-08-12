@@ -5,9 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
-const endpoint = "https://api.open-meteo.com/v1/forecast"
+const (
+	endpoint = "https://api.open-meteo.com/v1/forecast"
+)
+
+var (
+	pollInterval = time.Second * 3
+)
 
 type Data struct {
 	Elevation float64        `json:"elevation"`
@@ -15,12 +22,16 @@ type Data struct {
 }
 
 func main() {
-	data, err := getResults(52.52, 13.41)
-	if err != nil {
-		log.Fatal(err)
+	ticker := time.NewTicker(pollInterval)
+	for {
+		data, err := getResults(52.52, 13.41)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(data)
+		<-ticker.C
 	}
 
-	fmt.Println(data)
 }
 
 func getResults(lat, long float64) (*Data, error) {
